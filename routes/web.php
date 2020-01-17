@@ -11,8 +11,23 @@
 |
 */
 
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', static function () {
     return view('welcome');
 });
+
+Auth::routes();
+
+Route::group(['middleware' => 'auth'], static function () {
+    Route::get('/t', function (\App\Services\Payments $payments) {
+        dd($payments->createCustomer(\App\User::find(1)));
+    });
+    
+    Route::get('/product/buy/{product}', 'PaymentController@buy')->name('product.buy');
+    Route::post('/checkout/{product}', 'PaymentController@checkout')->name('checkout');
+    
+    Route::get('/products', 'ProductController@index')->name('product.index');
+});
+
