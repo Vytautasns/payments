@@ -1,0 +1,60 @@
+version: "3"
+services:
+
+  redis:
+    image: bitnami/redis:latest
+    container_name: kilo-redis
+    environment:
+      - ALLOW_EMPTY_PASSWORD=no
+      - REDIS_PASSWORD=foobared
+    ports:
+      - "6379:6379"
+
+  db:
+    image: mariadb:latest
+    container_name: kilo-mysql
+    volumes:
+      - ./docker/mysql/data:/var/lib/mysql:cached
+      - ./docker/mysql/my.cnf:/etc/mysql/my.cnf
+    ports:
+      - "6606:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - MYSQL_DATABASE=${DB_DATABASE}
+      - MYSQL_USER=${DB_USERNAME}
+      - MYSQL_PASSWORD=${DB_PASSWORD}
+
+  mail:
+    image: djfarrelly/maildev
+    container_name: kilo-maildev
+    ports:
+      - "6625:80"
+      - "1025:25"
+    command: ["bin/maildev", "--web", "80", "--smtp", "25", "--outgoing-host", "${MAILDEV_SERVER}", "--outgoing-secure", "--outgoing-user", "${MAILDEV_USER}", "--outgoing-pass", "${MAILDEV_PASS}"]
+
+  server:
+    image: phpdockerio/nginx:latest
+    container_name: kilo-nginx
+    volumes:
+      - ./:/var/www/kilo/:cached
+      - ./docker/nginx:/etc/nginx/conf.d:cached
+      - ./docker/nginx/logs:/var/www/logs:cached
+    ports:
+      - "6680:80"
+    expose:
+      - "9000"
+    links:
+      - php:kilo-php-fpm
+
+  php:
+    build:
+      context: .
+      dockerfile: ./docker/php-fpm/Dockerfile
+    container_name: kilo-php-fpm
+    volumes:
+      - ./docker/php-fpm/php.ini:/etc/php/7.3/fpm/php.ini
+      - ./:/var/www/kilo:cached
+    links:
+      - db:kilo-mysql
+      - redis:kilo-redis
+      - mail:kilo-maildev
